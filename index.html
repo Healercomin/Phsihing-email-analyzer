@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Phishing Email Analyser - a free, private, browser-based educational tool that helps you spot the warning signs of phishing and social-engineering emails. Runs entirely on your device.">
+<!--
+  PRIVACY BY DESIGN
+  The Content-Security-Policy below tells the browser to BLOCK all network
+  requests made by this page (connect-src 'none'). The email text you paste
+  therefore cannot be sent to any server, AI service, analytics provider or API.
+  It also blocks forms and embedded frames. This is enforced by the browser
+  itself, not just promised in the wording of the page.
+-->
+<meta http-equiv="Content-Security-Policy" content="connect-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'; frame-src 'none'">
+<title>Phishing Email Analyser &middot; Educational Triage Tool</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2l11 4v9c0 7-4.7 12.4-11 15C9.7 27.4 5 22 5 15V6z' fill='%230ea5e9'/%3E%3Cpath d='M11 16l4 4 7-8' fill='none' stroke='%23071020' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#analyser">Skip to the analyser</a>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="30" height="30">
+          <path d="M16 2l11 4v9c0 7-4.7 12.4-11 15C9.7 27.4 5 22 5 15V6z" fill="none" stroke="currentColor" stroke-width="2.2"></path>
+          <path d="M11 16l4 4 7-8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </span>
+      <span class="brand-text">
+        <strong>Phishing Email Analyser</strong>
+        <span class="brand-sub">Educational triage tool</span>
+      </span>
+    </div>
+    <div class="badge-local" title="Analysis happens entirely on your device">
+      <span class="dot" aria-hidden="true"></span> Runs 100% in your browser
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <h1>Spot the warning signs of a phishing email</h1>
+    <p class="lede">
+      Paste the contents of a suspicious email below and get an instant,
+      <strong>explainable</strong> risk score &mdash; with every warning sign clearly described
+      and practical advice on what to do next.
+    </p>
+    <p class="disclaimer-banner" role="note">
+      <strong>Educational triage tool.</strong> This tool highlights warning signs; it
+      <strong>cannot prove</strong> that an email is malicious or safe. It is a learning aid,
+      not a substitute for your organisation's security tools. Never click links or open
+      attachments just to &ldquo;test&rdquo; them.
+    </p>
+  </section>
+
+  <section class="card privacy-card">
+    <h2 class="card-title">
+      <span class="icon" aria-hidden="true">&#128274;</span>
+      Your privacy is protected by design
+    </h2>
+    <p>
+      Everything you paste is analysed <strong>inside your own web browser</strong>. Your email
+      content is never uploaded, stored, logged or sent to any server, AI provider, analytics
+      service or third-party API.
+    </p>
+    <ul class="tick-list">
+      <li>No server, no database, no accounts, no sign-up</li>
+      <li>No tracking, cookies, adverts or telemetry</li>
+      <li>The page is technically <strong>blocked from making network requests</strong> (Content-Security-Policy)</li>
+      <li>Works offline once it has loaded in your browser</li>
+    </ul>
+    <p class="muted small">
+      Try it: load this page, then disconnect from the internet &mdash; the analyser still works,
+      because nothing ever leaves your device.
+    </p>
+  </section>
+
+  <section id="analyser" class="card input-card">
+    <h2 class="card-title">1. Paste the email</h2>
+    <p class="muted">
+      Paste the visible text of the email. For deeper checks (SPF / DKIM / DMARC failures and
+      From&nbsp;/&nbsp;Reply-To mismatches), also paste the <strong>raw email headers</strong> &mdash; most email
+      apps have a &ldquo;Show original&rdquo; or &ldquo;View headers&rdquo; option.
+    </p>
+
+    <label class="field-label" for="emailInput">Email content (text and/or headers)</label>
+    <textarea id="emailInput" class="email-input" rows="12" spellcheck="false" autocomplete="off"
+      aria-describedby="inputHelp"
+      placeholder="Paste the email here...
+
+Example:
+
+From: Security Team &lt;security@example.com&gt;
+Reply-To: recovery@example.net
+Subject: Urgent: your account will be suspended
+
+Dear Customer, your account will be suspended within 24 hours...
+"></textarea>
+    <div class="input-meta">
+      <span id="charCount" class="muted small">0 characters</span>
+      <span class="muted small" id="inputHelp">Nothing you type leaves this page.</span>
+    </div>
+
+    <div class="actions">
+      <button id="analyseBtn" class="btn btn-primary" type="button">Analyse Email</button>
+      <button id="clearBtn" class="btn btn-ghost" type="button">Clear</button>
+    </div>
+
+    <div class="samples">
+      <span class="samples-label">Or load a completely fictional example:</span>
+      <div class="sample-buttons" id="sampleButtons">
+        <button class="btn btn-chip" type="button" data-sample="obvious">Obvious phishing</button>
+        <button class="btn btn-chip" type="button" data-sample="sophisticated">Sophisticated phishing</button>
+        <button class="btn btn-chip" type="button" data-sample="microsoft365">Fake Microsoft 365</button>
+        <button class="btn btn-chip" type="button" data-sample="parcel">Fake parcel delivery</button>
+        <button class="btn btn-chip" type="button" data-sample="bec">Fake invoice / BEC</button>
+        <button class="btn btn-chip btn-chip-ok" type="button" data-sample="legit">Legitimate email</button>
+      </div>
+    </div>
+
+    <p id="inputError" class="error-msg" role="alert" hidden></p>
+  </section>
+
+  <section id="results" class="results" hidden aria-live="polite">
+    <div class="card result-hero">
+      <div class="gauge-wrap">
+        <svg class="gauge" viewBox="0 0 180 180" role="img" aria-labelledby="gaugeTitle">
+          <title id="gaugeTitle">Phishing risk score</title>
+          <circle class="gauge-track" cx="90" cy="90" r="70"></circle>
+          <circle id="gaugeProgress" class="gauge-progress" cx="90" cy="90" r="70"></circle>
+        </svg>
+        <div class="gauge-center">
+          <span id="scoreValue" class="gauge-score">0</span>
+          <span class="gauge-max">/ 100</span>
+        </div>
+      </div>
+      <div class="result-hero-text">
+        <span id="bandChip" class="band-chip">Low Risk</span>
+        <h2 id="verdictTitle" class="verdict-title">Low Risk</h2>
+        <p id="verdictText" class="verdict-text"></p>
+        <p id="resultStats" class="muted small"></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">What we found</h3>
+      <p class="muted small" id="findingsIntro"></p>
+      <ul id="findingsList" class="findings"></ul>
+      <p id="noFindings" class="no-findings" hidden>
+        No common phishing warning signs were detected in this message. That is
+        <strong>not</strong> a guarantee that it is safe &mdash; stay cautious, especially with
+        unexpected requests for money, information or action.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">What you should do next</h3>
+      <ul id="adviceList" class="advice"></ul>
+    </div>
+
+    <div class="card explain-card">
+      <h3 class="card-title">How your score was calculated</h3>
+      <p class="muted small">
+        Every warning sign above has a fixed point value. They are added together and the total
+        is capped at 100. Bands: <strong>0&ndash;24 Low Risk</strong>,
+        <strong>25&ndash;59 Suspicious</strong>, <strong>60&ndash;100 High Risk</strong>.
+      </p>
+      <ul id="scoreBreakdown" class="breakdown"></ul>
+    </div>
+  </section>
+
+  <section class="card safety-card">
+    <h2 class="card-title">
+      <span class="icon" aria-hidden="true">&#9888;&#65039;</span>
+      Stay safe: rules for handling a suspicious email
+    </h2>
+    <ul class="safety-list">
+      <li><strong>Do not click links or open attachments</strong> just to see whether they are dangerous. You do not need to test them.</li>
+      <li><strong>Never reply</strong> with passwords, one-time codes, bank details or personal information.</li>
+      <li><strong>Verify independently.</strong> Use the organisation's official website or app &mdash; type the address yourself &mdash;
+        or call a number you already have (from a statement, card or official site). Never use contact details from the email.</li>
+      <li><strong>Report and delete.</strong> Use your email provider's &ldquo;Report phishing&rdquo; option, or forward the message to your
+        IT / security team, then delete it.</li>
+      <li><strong>If you already acted,</strong> change that password immediately, turn on two-factor authentication, tell your IT team,
+        and contact your bank if money or account details were involved.</li>
+    </ul>
+  </section>
+
+  <section class="card limits-card">
+    <h3 class="card-title">What this tool can and cannot do</h3>
+    <p class="muted small">
+      <strong>It cannot</strong> definitively tell you whether an email is malicious or safe, and it cannot see everything:
+      images, QR codes, hidden email internals, or where a link really leads until you visit it (which you should not do).
+      It only examines the text and headers you paste.
+    </p>
+    <p class="muted small">
+      <strong>It is designed to</strong> teach you the warning signs and help you decide when to slow down and verify.
+      A high score means &ldquo;many warning signs found&rdquo;, not &ldquo;proven malicious&rdquo;; a low score means
+      &ldquo;no common warning signs found&rdquo;, not &ldquo;proven safe&rdquo;.
+    </p>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <p class="small muted">
+      <strong>Phishing Email Analyser</strong> &middot; An educational tool. Analysis happens
+      <strong>entirely inside your browser</strong> &mdash; no server, no storage, no tracking.
+    </p>
+    <p class="small muted">
+      Free to use and free to host as a static website. Built with plain HTML, CSS and JavaScript.
+    </p>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phishing Email Analyser - self tests</title>
+<style>
+  body { font-family: system-ui, "Segoe UI", Roboto, sans-serif; background:#070c18; color:#e9effb; margin:0; padding:28px; line-height:1.5; }
+  h1 { font-size:1.4rem; margin:0 0 6px; }
+  p.sub { color:#93a5c7; margin:0 0 20px; font-size:0.92rem; }
+  #summary { font-size:1.1rem; font-weight:700; padding:14px 16px; border-radius:10px; margin-bottom:18px; }
+  .ok { background:rgba(52,211,153,.12); border:1px solid rgba(52,211,153,.4); color:#c8f7e4; }
+  .bad { background:rgba(251,113,133,.12); border:1px solid rgba(251,113,133,.4); color:#ffd9e0; }
+  ul { list-style:none; padding:0; margin:0; }
+  li { padding:9px 12px; border:1px solid rgba(148,178,226,.16); border-radius:8px; margin-bottom:7px; font-size:0.9rem; }
+  li.pass { border-left:3px solid #34d399; }
+  li.fail { border-left:3px solid #fb7185; }
+  .tag { font-weight:700; margin-right:8px; }
+  .pass .tag { color:#34d399; }
+  .fail .tag { color:#fb7185; }
+  .detail { display:block; color:#ffb4c1; font-family: ui-monospace,Consolas,monospace; font-size:0.8rem; margin-top:4px; }
+  footer { margin-top:22px; color:#93a5c7; font-size:0.82rem; }
+</style>
+</head>
+<body>
+<h1>Phishing Email Analyser - self tests</h1>
+<p class="sub">These tests run entirely in your browser using the real analysis engine (app.js). No internet connection is used.</p>
+<div id="summary">Running tests&hellip;</div>
+<ul id="out"></ul>
+<footer>If everything shows green, the engine is behaving as expected.</footer>
+
+<script src="app.js"></script>
+<script>
+'use strict';
+
+var A = window.PhishingAnalyser;
+var out = document.getElementById('out');
+var log = [];
+
+function assert(cond, msg) { if (!cond) { throw new Error(msg); } }
+
+function test(name, fn) {
+  var entry = { name: name, pass: false, detail: '' };
+  try {
+    fn();
+    entry.pass = true;
+  } catch (e) {
+    entry.detail = e && e.message ? e.message : String(e);
+  }
+  log.push(entry);
+}
+
+function ids(result) {
+  return result.findings.map(function (f) { return f.id; });
+}
+
+test('Engine and rule set are loaded', function () {
+  assert(A && typeof A.analyzeEmail === 'function', 'analyzeEmail is missing');
+  assert(A.RULES.length >= 20, 'expected at least 20 rules, found ' + A.RULES.length);
+});
+
+test('Obvious phishing => High Risk (score >= 60)', function () {
+  var r = A.analyzeEmail(A.SAMPLES.obvious);
+  assert(r.band === 'high', 'expected band "high", got "' + r.band + '" (score ' + r.score + ')');
+  assert(r.score >= 60, 'expected score >= 60, got ' + r.score);
+});
+
+test('Obvious phishing is capped at 100 and flagged as capped', function () {
+  var r = A.analyzeEmail(A.SAMPLES.obvious);
+  assert(r.score === 100, 'expected score 100, got ' + r.score);
+  assert(r.capped === true, 'expected capped === true');
+});
+
+test('Obvious phishing detects password request, MFA request and raw IP URL', function () {
+  var found = ids(A.analyzeEmail(A.SAMPLES.obvious));
+  assert(found.indexOf('password_request') !== -1, 'password_request not detected');
+  assert(found.indexOf('mfa_request') !== -1, 'mfa_request not detected');
+  assert(found.indexOf('raw_ip_url') !== -1, 'raw_ip_url not detected');
+});
+
+test('Obvious phishing detects Reply-To mismatch and sender spoofing', function () {
+  var found = ids(A.analyzeEmail(A.SAMPLES.obvious));
+  assert(found.indexOf('replyto_mismatch') !== -1, 'replyto_mismatch not detected');
+  assert(found.indexOf('sender_spoof') !== -1, 'sender_spoof not detected');
+});
+
+test('Legitimate email => Low Risk with score 0', function () {
+  var r = A.analyzeEmail(A.SAMPLES.legit);
+  assert(r.band === 'low', 'expected band "low", got "' + r.band + '" (score ' + r.score + ')');
+  assert(r.score === 0, 'expected score 0, got ' + r.score);
+});
+
+test('Legitimate email scores far below the obvious phishing email', function () {
+  var good = A.analyzeEmail(A.SAMPLES.legit).score;
+  var bad = A.analyzeEmail(A.SAMPLES.obvious).score;
+  assert(bad > good + 50, 'expected a large gap, got ' + good + ' vs ' + bad);
+});
+
+test('Fake Microsoft 365 warning => High Risk', function () {
+  var r = A.analyzeEmail(A.SAMPLES.microsoft365);
+  assert(r.band === 'high', 'expected high, got ' + r.band + ' (' + r.score + ')');
+});
+
+test('Fake parcel delivery => Suspicious or High Risk', function () {
+  var r = A.analyzeEmail(A.SAMPLES.parcel);
+  assert(r.score >= 25, 'expected score >= 25, got ' + r.score);
+});
+
+test('Fake invoice / BEC email => High Risk and flags a bank-detail change', function () {
+  var r = A.analyzeEmail(A.SAMPLES.bec);
+  assert(r.band === 'high', 'expected high, got ' + r.band + ' (' + r.score + ')');
+  assert(ids(r).indexOf('bank_change') !== -1, 'bank_change not detected');
+});
+
+test('Sophisticated phishing => Suspicious band (not obviously High)', function () {
+  var r = A.analyzeEmail(A.SAMPLES.sophisticated);
+  assert(r.band === 'suspicious', 'expected suspicious, got ' + r.band + ' (' + r.score + ')');
+});
+
+test('Executable / double-extension attachment is detected', function () {
+  var found = ids(A.analyzeEmail('Please see the attached invoice.pdf.exe'));
+  assert(found.indexOf('executable_attachment') !== -1, 'executable_attachment not detected');
+});
+
+test('Shortened URL is detected', function () {
+  var found = ids(A.analyzeEmail('Track your parcel here: http://bit.ly/3xYzAb12'));
+  assert(found.indexOf('shortened_url') !== -1, 'shortened_url not detected');
+});
+
+test('Macro / enable-content instruction is detected', function () {
+  var found = ids(A.analyzeEmail('Please enable macros to view the content.'));
+  assert(found.indexOf('macro_request') !== -1, 'macro_request not detected');
+});
+
+test('SPF, DKIM and DMARC failures are detected from headers', function () {
+  var raw = ['Authentication-Results: mx.example.com; spf=fail dkim=fail dmarc=fail',
+    'From: Alert <alert@example.com>', '', 'Please check your account.'].join('\n');
+  var found = ids(A.analyzeEmail(raw));
+  assert(found.indexOf('spf_fail') !== -1, 'spf_fail not detected');
+  assert(found.indexOf('dkim_fail') !== -1, 'dkim_fail not detected');
+  assert(found.indexOf('dmarc_fail') !== -1, 'dmarc_fail not detected');
+});
+
+test('Received-SPF: fail header is detected', function () {
+  var raw = ['Received-SPF: fail (example.com: domain does not designate 192.0.2.10)',
+    'From: Alert <alert@example.com>', '', 'Hello.'].join('\n');
+  var found = ids(A.analyzeEmail(raw));
+  assert(found.indexOf('spf_fail') !== -1, 'spf_fail not detected from Received-SPF');
+});
+
+test('Look-alike brand domain is detected as a suspicious URL', function () {
+  var found = ids(A.analyzeEmail('Login here: https://paypa1-secure.top/login'));
+  assert(found.indexOf('suspicious_url') !== -1, 'suspicious_url not detected');
+});
+
+test('Misleading link text is detected when HTML is pasted', function () {
+  var raw = 'Click <a href="https://evil-login.example/verify">https://microsoft.com</a> to continue';
+  var found = ids(A.analyzeEmail(raw));
+  assert(found.indexOf('misleading_link_text') !== -1, 'misleading_link_text not detected');
+});
+
+test('Gift-card payment request is detected', function () {
+  var found = ids(A.analyzeEmail('Please buy two 100 Amazon gift cards urgently.'));
+  assert(found.indexOf('payment_request') !== -1, 'payment_request not detected');
+});
+
+test('Empty input does not crash and returns a Low Risk zero score', function () {
+  var r = A.analyzeEmail('');
+  assert(r.score === 0, 'expected score 0, got ' + r.score);
+  assert(r.band === 'low', 'expected low, got ' + r.band);
+  assert(r.findings.length === 0, 'expected no findings');
+});
+
+test('Findings are sorted from highest points to lowest', function () {
+  var f = A.analyzeEmail(A.SAMPLES.obvious).findings;
+  for (var i = 1; i < f.length; i++) {
+    assert(f[i - 1].points >= f[i].points, 'findings are not sorted at index ' + i);
+  }
+});
+
+test('Every finding carries points, a reason, advice and evidence', function () {
+  var f = A.analyzeEmail(A.SAMPLES.obvious).findings;
+  assert(f.length > 0, 'expected findings');
+  for (var i = 0; i < f.length; i++) {
+    assert(typeof f[i].points === 'number' && f[i].points > 0, 'missing points on ' + f[i].id);
+    assert(f[i].why && f[i].why.length > 20, 'missing reason on ' + f[i].id);
+    assert(f[i].advice && f[i].advice.length > 10, 'missing advice on ' + f[i].id);
+    assert(f[i].evidence.length > 0, 'missing evidence on ' + f[i].id);
+  }
+});
+
+test('Recommendations are produced for a phishing email', function () {
+  var recs = A.buildRecommendations(A.analyzeEmail(A.SAMPLES.obvious));
+  assert(recs.length >= 3, 'expected at least 3 recommendations, got ' + recs.length);
+});
+
+/* --- render the summary --- */
+var passed = log.filter(function (l) { return l.pass; }).length;
+var failed = log.length - passed;
+var allPassed = failed === 0;
+
+var summary = document.getElementById('summary');
+summary.className = allPassed ? 'ok' : 'bad';
+summary.textContent = (allPassed ? 'ALL TESTS PASSED' : 'SOME TESTS FAILED') +
+  ' - ' + passed + ' of ' + log.length + ' passed';
+
+for (var i = 0; i < log.length; i++) {
+  var li = document.createElement('li');
+  li.className = log[i].pass ? 'pass' : 'fail';
+  var tag = document.createElement('span');
+  tag.className = 'tag';
+  tag.textContent = log[i].pass ? 'PASS' : 'FAIL';
+  li.appendChild(tag);
+  li.appendChild(document.createTextNode(log[i].name));
+  if (log[i].detail) {
+    var d = document.createElement('span');
+    d.className = 'detail';
+    d.textContent = log[i].detail;
+    li.appendChild(d);
+  }
+  out.appendChild(li);
+}
+
+document.title = (allPassed ? 'PASS' : 'FAIL') + ' ' + passed + '/' + log.length + ' - Phishing Email Analyser tests';
+window.__TEST_RESULTS__ = { total: log.length, passed: passed, failed: failed, all_pass: allPassed, log: log };
+</script>
+</body>
+</html>
